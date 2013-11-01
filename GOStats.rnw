@@ -1,0 +1,426 @@
+%\VignetteIndexEntry{BeadArrayUseCases Vignette}
+%\VignetteDepends{}
+%\VignetteKeywords{Illumina Microarray Expression}
+%\VignettePackage{BeadArrayUseCases}
+
+\documentclass[a4paper,11pt]{article}
+
+\textwidth=6.2in
+\textheight=8.5in
+\oddsidemargin=.1in
+\evensidemargin=.1in
+\headheight=-.3in
+\parindent=0pt
+
+
+\usepackage{amsthm,ragged2e,marvosym,wasysym}
+\usepackage{mls40Sweave}
+\usepackage[utf8]{inputenc}
+\usepackage{sidecap}
+
+\newcommand{\Rfunction}[1]{{\texttt{#1}}}
+\newcommand{\Robject}[1]{{\texttt{#1}}}
+\newcommand{\Rpackage}[1]{{\textsf{#1}}}
+\newcommand{\Rmethod}[1]{{\texttt{#1}}}
+\newcommand{\Rfunarg}[1]{{\texttt{#1}}}
+\newcommand{\Rclass}[1]{{\textit{#1}}}
+
+\SweaveOpts{eval=TRUE, keep.source=FALSE, results=hide}
+
+\title{Common microarray analyses in Bioconductor}
+
+
+\author{Mark Dunning}
+
+
+\renewcommand\labelenumi{\textbf{Exercise \theenumi}}
+
+
+% Sweave("IlluminaPLoSVignette.rnw")
+\newtheoremstyle{labexc}%
+{9pt}{12pt}%      space above and below
+{\sffamily\RaggedRight}%              body style
+{0pt}%       heading indent amount
+{\sffamily\bfseries}{:}% heading font and punctuation after it
+{ }%         space after heading is a new line
+{}%          head spec (empty = same as 'plain' style)
+
+\newtheoremstyle{myplain}%
+{9pt}{9pt}%      space above and below
+{\RaggedRight}%              body style
+{0pt}%       heading indent amount
+{\sffamily\bfseries}{}% heading font and punctuation after it
+{ }%         space after heading is a new line
+{}%          head spec (empty = same as 'plain' style)
+
+\newtheoremstyle{mywarning}%
+{9pt}{9pt}%      space above and below
+{\itshape\RaggedRight}%              body style
+{0pt}%       heading indent amount
+{\sffamily\bfseries}{}% heading font and punctuation after it
+{ }%         space after heading is a new line
+{}%          head spec (empty = same as 'plain' style)
+
+\theoremstyle{myplain} \newtheorem*{textinfo}{\large\Info}
+\theoremstyle{labexc} \newtheorem*{exc}{Use Case}
+\theoremstyle{mywarning} \newtheorem*{notebell}{\Large\bell}
+\theoremstyle{myplain} \newtheorem*{noteright}{\Large\Pointinghand}
+\theoremstyle{myplain} \newtheorem*{textstop}{\Large\Stopsign}
+\theoremstyle{myplain} \newtheorem*{commentary}{\Large\CheckedBox}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{document}
+
+
+\maketitle
+\textinfo{The GOstats pacakge can be used to test the association of Gene Ontology (GO) terms
+to genes in a gene list. Testing is done using a Hypergeometric test after defining a gene uni-
+verse and a set of interesting genes.
+This package demonstrates the usage of GOstats for a breast cancer experiment using Illu-
+mina data. The starting point for the practical is a normalised expression matrix, therefore
+the same commands in the practical can be applied to data from other technologies.
+The content of the practical is based on material by Seth Falcon and Robert Gentleman and
+data kindly provided by Inma Spiteri.}
+
+<<setWidth, eval=TRUE, echo=FALSE>>=
+options(width=70);
+@
+
+\section{Retrieving public data from GEO}
+
+The data from this experiment comprises nine paired tumor/normal colon tissues on Illumina HT12\_v3 gene expression Beadchips. These data were generated to inform a comparison of technologies for microRNA profiling. However, we will only use the mRNA data here. 
+
+\begin{exc}
+Download the dataset with GEO GSE33126.
+\end{exc}
+
+<<>>=
+library(GEOquery)
+library(limma)
+library(RColorBrewer)
+url <- "ftp://ftp.ncbi.nih.gov/pub/geo/DATA/SeriesMatrix/GSE33126/"
+filenm <- "GSE33126_series_matrix.txt.gz"
+if(!file.exists("GSE33126_series_matrix.txt.gz")) download.file(paste(url, filenm, sep=""), destfile=filenm)
+gse <- getGEO(filename=filenm)
+@
+
+We need to explore the data to ensure that they have been normalised and are on an appropriate scale for analysis. We should 
+
+\begin{exc}
+Are the data on the log$_2$ scale? Are they normalised? Look at the phenotypic data stored with the object and find information about the sample groups in the study and patient IDs.
+\end{exc}
+
+<<>>=
+head(exprs(gse))
+exprs(gse) <- log2(exprs(gse))
+boxplot(exprs(gse),outline=FALSE)
+pData(gse)[1:2,]
+
+SampleGroup <- pData(gse)$source_name_ch1
+Patient <- pData(gse)$characteristics_ch1.1 
+@
+
+
+\section{Clustering}
+
+\begin{exc}
+Perform a hierarchical clustering on the samples using Euclidean distance and average linkage agglomeration. Are there any distinct groups in the data? Try using the correlation based similarity measure and complete linkage. Does the choice of method effect your clustering?
+\end{exc}
+
+<<clustering>>=
+par(mfrow=c(1,2))
+clust.euclid = hclust(dist(t(exprs(gse))), method = "complete")
+clust.cor = hclust(as.dist(1 - cor(exprs(gse))), method = "complete")
+
+
+plot(clust.euclid,label = SampleGroup)
+plot(clust.cor,label = SampleGroup)
+@
+
+
+\section{Principal Components Analysis and MDS}
+Principal components analysis (PCA) is a data reduction technique that allows to simplify multidimensional data sets to 2 or 3 dimensions for plotting purposes and visual variance analysis.
+\begin{exc}
+Perform PCA
+\end{exc}
+<<PCA>>=
+library(ggplot2)
+distMat <- dist(t(exprs(gse)))
+pca <- prcomp(distMat)
+summary(pca)
+
+
+pcRes <- data.frame(pca$rotation,SampleGroup,Sample = rownames(pca$x),Patient)
+
+ggplot(pcRes, aes(x=PC1,y=PC2,col=SampleGroup,label=Patient)) + geom_point() + geom_text(vjust=0,alpha=0.5)
+ggplot(pcRes, aes(x=SampleGroup,y=PC1,fill=SampleGroup)) + geom_boxplot()
+ggplot(pcRes, aes(x=SampleGroup,y=PC2,fill=SampleGroup)) + geom_boxplot()
+@
+
+
+\begin{exc}
+MDS
+\end{exc}
+<<MDS>>=
+cols <- SampleGroup
+cols <- gsub("tumor", "orange",cols)
+cols <- gsub("normal", "steelblue",cols)
+
+par(mfrow = c(1, 1))
+plotMDS(exprs(gse),col=cols)
+
+@
+
+
+<<eval=FALSE>>=
+
+type <- as.factor(pData(gse)$source_name_ch1)
+levels(type) <- brewer.pal("Set1",n = length(levels(type)))
+
+WGCNA:::plotDendroAndColors(clust.cor, colors=as.character(type))
+
+design <- model.matrix(~0+as.factor(pData(gse)$source_name_ch1))
+colnames(design) <- c("Normal", "Tumour")
+
+fit <- lmFit(exprs(gse), design)
+cMat <- makeContrasts(DE=Tumour - Normal, levels=design)
+fit2 <- contrasts.fit(fit, cMat)
+efit <- eBayes(fit2)
+@
+
+\section{Producing a heatmap}
+
+A heatmap is often used to visualise differences between samples. Each row represents a
+gene and each column is an array and colours indicate the expression levels of genes. Both
+samples and genes with similar expression profile are clustered together.
+Drawing a heatmap in R uses a lot of memory and can take a long time, therefore reducing
+the amount of data to be plotted is usually recommended. Typically, data are filtered to in-
+clude the genes which tell us the most about the biological variation. Note that selection of
+such genes is done without using prior knowledge about the samples.
+
+
+In R, the apply function is shorthand for running the same function repeatedly for each
+row or column in a matrix. For example, if you want to calculate the mean or standard devi-
+ation for each gene across all samples, or calculations for all expression values in an array.
+\begin{exc}
+Make a heatmap using the 100 most variable genes in the experiment according to
+their inter-quartile range (IQR). Can you see any structure in the data?
+\end{exc}
+<<heatmap>>=
+IQRs = apply(exprs(gse), 1, IQR)
+highVarGenes = order(IQRs,decreasing=T)[1:100]
+Symbols <- as.character(fData(gse)$Symbol[highVarGenes])
+heatmap(as.matrix(exprs(gse)[highVarGenes, ]),ColSideColors=cols,labRow=Symbols)
+@
+
+The heatmap function can be customised in many ways to make the output more infor-
+mative. For example, the labRow and labCol parameters can be used to give labels to the
+rows (genes) and columns (arrays) of the heatmap. Similarly, ColSideColors and RowSide-
+Colors give coloured labels, often used to indicate different groups which are know in ad-
+vance. See the help page for heatmap for more details.
+
+\section{Obtaining annotation information}
+Annotation information can be retrieved from Bioconductor to assist in the interpretation
+of array data. In our case we are using the Illumina Human Version 1 chip, which has its an-
+notation in the illuminaHumanv1 package. Similar packages are available for Human6 version
+2 (illuminaHumanv2) and Mouse6 (illuminaMousev1) or affy chips. The illuminaHumanv1
+package contains a series of ’environment’ objects, each of which contains mappings between
+each probe on the Human6 chip and the genome. For example, the mapping between each
+probe and Entrez IDs is provided by theilluminaHumanv1ENTREZID environment. Due to the
+design of this chip, not all probes will map to a Entrez ID, in which case the value of NA is
+returned.
+A list of all such environments can be retrieved by running the command illuminaHumanv1().
+The environments are split into two sections; environment that provide mappings from probes
+on the array to the genome (”Mappings found for probe based rda files”), and mappings
+which go from the genome to probes on the array (”Mappings found for non-probe based rda
+files”).
+
+\begin{exc}
+Load the \Rpackage{illuminHumanv3.db} annotation package. What mappings can be obtained for every probe?
+\end{exc}
+<<>>=
+library(illuminaHumanv3.db)
+illuminaHumanv3()
+@
+
+
+The \Rfunction{mget} function can be used to retrieve annotation information for each probe from a
+particular environment. The parameters passed to the function are the manufacturer IDs
+and the environment we want to look up. It is usually a good idea to also specify \Rfunarg{ifnotfound=NA}. This prevents the function from falling over if we pass an identifier that it can’t find in the environment.
+
+\begin{exc}
+Retrieve the chromosome, refseq and entrez ID for each gene
+\end{exc}
+
+<<>>=
+ids = rownames(exprs(gse))[1:10]
+chr = mget(ids, illuminaHumanv3CHR, ifnotfound = NA)
+refseq = mget(ids, illuminaHumanv3REFSEQ, ifnotfound = NA)
+entrez = mget(ids, illuminaHumanv3ENTREZID, ifnotfound = NA)
+anno = cbind(Ill_ID = as.character(ids), Chr = as.character(chr), RefSeq = as.character(refseq), Entrez=entrez)
+anno
+@
+
+
+Environments can also be used to find which probes on the array map to a particular fea-
+ture from a database, such as a GO term, pathway or gene symbol.
+
+\begin{exc}
+Which probes on this chip are part of the cell cycle using the GO (GO:0007049)
+or KEGG (04110)?
+\end{exc}
+
+<<>>=
+cellCycleProbesGO = mget("GO:0007049", illuminaHumanv3GO2PROBE)
+cellCycleProbesKEGG = mget("04110", illuminaHumanv3PATH2PROBE)
+cellCycleProbesGO[[1]][1:10]
+length(cellCycleProbesKEGG[[1]])
+@
+
+\section{Gene-Ontology analysis}
+
+\subsection{Non-specific filtering}
+We are now going to create a gene universe by removing genes for will not contribute to
+the subsequent analysis. Such filtering is done without regarding the phenotype variables -
+hence a ”non-specific” filter.
+The Illumina Human6 chip contains 47,293 probes, but less than half of these have enough
+detailed information to useful for a GO analysis. Therefore we restrict the dataset to only
+probes for which we have a Entrez ID.
+It is also recommended to select probes with sufficient variability across samples to be inter-
+esting; as probes with little variability will no be interesting to the question we are trying
+to answer. The interquartile-range of each probe across all arrays is commonly used for this
+with a cut-off of 0.5.
+
+\begin{exc}
+Create the gene universe of all genes with Entrez ID and with sufficient variation
+across samples. How big is the universe?
+\end{exc}
+
+<<>>=
+entrezIds = mget(rownames(exprs(gse)), illuminaHumanv3ENTREZID, ifnotfound = NA)
+haveEntrezId = names(entrezIds)[sapply(entrezIds, function(x) !is.na(x))]
+entrezSubset = exprs(gse)[haveEntrezId, ]
+entrezIQR = apply(entrezSubset, 1, IQR)
+selected = entrezIQR > 0.5
+nsFiltered = entrezSubset[selected, ]
+universeIds = unlist(mget(rownames(nsFiltered), illuminaHumanv3ENTREZID, ifnotfound = NA))
+@
+
+Remember that the size of the universe can have an effect on the analysis. If the universe
+is made artificially large by including too many uninformative probes, the p-values for the
+GO terms will appear more significant.
+
+
+\subsection{Selecting genes of interest and performing Hypergeometric test}
+
+We now test the genes in the universe to see which ones have significant differences be-
+tween the two groups. For this, we use the rowttests function implemented in the GOstats
+package, which performs a t-test for each row with respect to a factor. The p-values of the
+test can be extracted, with one p-value given for each probe.
+
+\begin{exc}
+Do a t-test for each probe between the two groups of samples we have identified.
+How many probes are significant at the 0.05 level? Define a list of genes to be used in the
+hypergeometric test by finding the Entrez Ids for these significant probes.
+\end{exc}
+
+<<>>=
+library(GOstats)
+library(genefilter)
+fac = as.factor(pData(gse)$source_name_ch1)
+ttests = rowttests(as.matrix(nsFiltered), fac)
+smPV = ttests$p.value < 0.05
+pvalFiltered = nsFiltered[smPV, ]
+dim(pvalFiltered)
+selectedEntrezIds = unlist(mget(rownames(pvalFiltered), illuminaHumanv3ENTREZID, ifnotfound = NA))
+@
+
+The hyperGTest function is used to do the hypergeometric test for GO terms. Rather
+than passing a long list of parameters to the function. An object of type GOHyperGParams
+is created to hold all the parameters we need to run the hypergeometric test. This object
+can then be passed to hyperGTest multiple times without having to re-type the parameters
+each time.
+The meanings of these parameters are as follows:
+\begin{itemize}
+\item geneIds - The list of identifiers for the genes that we have selected as interesting
+\item universeGeneIds - The list of identifiers resulting from non-specific filtering
+\item annotation - The name of the annotation package that will be used
+\item ontology - The name of the GO ontology that will be tested; either BP, CC or MF
+\item pvaluecutoff - p-value that we will use to select significant GO terms
+\item testDirection - Either ”over” or ”under” for over or under represented terms respectively
+\item conditional - A more sophisticated form of hypergeometric test, which takes the rela-
+tionships between terms in the GO graph can be used if this is set to TRUE. For this
+practical we will keep conditional = FALSE
+\end{itemize}
+
+\begin{exc}
+Do a hypergeometric test to find which GO terms are over-represented in the
+filtered list of genes. How many GO terms are significant with a p-value of 0.05?
+\end{exc}
+
+<<>>=
+params = new("GOHyperGParams", geneIds = selectedEntrezIds, universeGeneIds = universeIds, annotation="illuminaHumanv3",ontology = "BP", pvalueCutoff = 0.05, conditional = FALSE, testDirection = "over")
+hgOver = hyperGTest(params)
+hgOver
+@
+
+The summary function can be used to view the results of the test in matrix form. The
+rows of the matrix are arranged in order of significance. The p-value is shown for each GO
+term along with with total number of genes for that GO term, number of genes we would be
+expect to appear in the gene list by chance and that number that were observed. A descrip-
+tive name is also given for each term. The results can also be printed out to a HTML report
+using htmlReport.
+
+\begin{exc}
+View the results of the top 20 GO terms and create a HTML report.
+\end{exc}
+<<>>=
+summary(hgOver)[1:20,]
+@
+
+GOstats also has the facility to test for KEGG pathways and chromosome bands which
+are over-reprsented. The procedure of creating a gene universe and set of selected genes is
+the same. However, we have to use a different object for the parameters, as not all 
+\begin{exc}
+Repeat the hypergeometric test for chromsome bands and KEGG pathways
+\end{exc}
+<<>>=
+keggParams = new("KEGGHyperGParams", geneIds = selectedEntrezIds, universeGeneIds = universeIds,
+annotation = "illuminaHumanv3", pvalueCutoff = 0.05, testDirection = "over")
+
+keggHgOver = hyperGTest(keggParams)
+summary(keggHgOver)
+
+
+chrParams = new("ChrMapHyperGParams", geneIds = selectedEntrezIds, universeGeneIds = universeIds,annotation = "illuminaHumanv3", pvalueCutoff = 0.05, testDirection = "over",conditional = TRUE)
+chrHgOver = hyperGTest(chrParams)
+summary(chrHgOver)
+@
+
+
+\section{Creating a classifer}
+
+<<>>=
+library(pamr)
+dat <- exprs(gse)
+gN <- as.character(fData(gse)$Symbol)
+gI <- featureNames(gse)
+sI <- sampleNames(gse)
+
+train.dat <- list(x = dat, y = SampleGroup, genenames = gN, geneid = gI,sampleid = sI)
+model <- pamr.train(train.dat, n.threshold = 100)
+@
+
+
+<<>>=
+
+model.cv <- pamr.cv(model, train.dat, nfold = 10)
+model.cv
+
+pamr.plotcv(model.cv)
+@
+
+
+
+\end{document}
