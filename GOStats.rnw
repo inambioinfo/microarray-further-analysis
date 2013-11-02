@@ -25,7 +25,7 @@
 \newcommand{\Rfunarg}[1]{{\texttt{#1}}}
 \newcommand{\Rclass}[1]{{\textit{#1}}}
 
-\SweaveOpts{eval=TRUE, keep.source=FALSE, results=hide}
+\SweaveOpts{eval=FALSE, keep.source=FALSE, results=hide}
 
 \title{Common microarray analyses in Bioconductor}
 
@@ -87,7 +87,9 @@ data kindly provided by Inma Spiteri.}
 options(width=70);
 @
 
-\section{Retrieving public data from GEO}
+\section{Dealing with public data}
+
+\subsection{Retrieving public data from GEO}
 
 The data from this experiment comprises nine paired tumor/normal colon tissues on Illumina HT12\_v3 gene expression Beadchips. These data were generated to inform a comparison of technologies for microRNA profiling. However, we will only use the mRNA data here. 
 
@@ -105,7 +107,7 @@ if(!file.exists("GSE33126_series_matrix.txt.gz")) download.file(paste(url, filen
 gse <- getGEO(filename=filenm)
 @
 
-We need to explore the data to ensure that they have been normalised and are on an appropriate scale for analysis. We should 
+We need to explore the data to ensure that they have been normalised and are on an appropriate scale for analysis.
 
 \begin{exc}
 Are the data on the log$_2$ scale? Are they normalised? Look at the phenotypic data stored with the object and find information about the sample groups in the study and patient IDs.
@@ -121,6 +123,34 @@ SampleGroup <- pData(gse)$source_name_ch1
 Patient <- pData(gse)$characteristics_ch1.1 
 @
 
+
+\subsection{Downloading data from ArrayExpress}
+
+\begin{exc}
+Download the dataset E-TABM-25
+\end{exc}
+
+<<>>=
+library(ArrayExpress)
+ETABM25.affybatch = ArrayExpress("E-TABM-25")
+print(ETABM25.affybatch)
+sampleNames(ETABM25.affybatch)
+colnames(pData(ETABM25.affybatch))
+head(exprs(ETABM25.affybatch))
+boxplot(log2(exprs(ETABM25.affybatch)),outline=FALSE)
+
+@
+
+
+\subsection{Bioconductor data packages}
+
+<<>>=
+source("http://www.bioconductor.org/biocLite.R")
+biocLite("breastCancerNKI")
+library(breastCancerNKI)
+data(nki)
+pData(nki)
+@
 
 \section{Clustering}
 
