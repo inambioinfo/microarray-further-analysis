@@ -87,7 +87,9 @@ data kindly provided by Inma Spiteri.}
 options(width=70);
 @
 
-\section{Retrieving public data from GEO}
+\section{Dealing with public data}
+
+\subsection{Retrieving public data from GEO}
 
 The data from this experiment comprises nine paired tumor/normal colon tissues on Illumina HT12\_v3 gene expression Beadchips. These data were generated to inform a comparison of technologies for microRNA profiling. However, we will only use the mRNA data here. 
 
@@ -120,6 +122,20 @@ pData(gse)[1:2,]
 SampleGroup <- pData(gse)$source_name_ch1
 Patient <- pData(gse)$characteristics_ch1.1 
 @
+
+
+\subsection{Retrieving data from ArrayExpress}
+
+
+<<>>=
+library(ArrayExpress)
+ETABM25.affybatch = ArrayExpress("E-TABM-25")
+ETABM25.affybatch 
+@
+
+
+\subsection{Using Bioconductor data packages}
+
 
 
 \section{Clustering}
