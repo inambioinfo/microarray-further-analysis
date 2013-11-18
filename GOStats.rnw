@@ -80,8 +80,7 @@ verse and a set of interesting genes.
 This package demonstrates the usage of GOstats for a breast cancer experiment using Illu-
 mina data. The starting point for the practical is a normalised expression matrix, therefore
 the same commands in the practical can be applied to data from other technologies.
-The content of the practical is based on material by Seth Falcon and Robert Gentleman and
-data kindly provided by Inma Spiteri.}
+}
 
 <<setWidth, eval=TRUE, echo=FALSE>>=
 options(width=70);
@@ -124,29 +123,20 @@ Patient <- pData(gse)$characteristics_ch1.1
 @
 
 
-<<<<<<< HEAD
-\subsection{Retrieving data from ArrayExpress}
 
-=======
 \subsection{Downloading data from ArrayExpress}
 
 \begin{exc}
 Download the dataset E-TABM-25
 \end{exc}
->>>>>>> cf1ee02ccfac72235e96fbd699109ba08a7874ee
 
 <<>>=
 library(ArrayExpress)
 ETABM25.affybatch = ArrayExpress("E-TABM-25")
-<<<<<<< HEAD
 ETABM25.affybatch 
 @
 
-
-\subsection{Using Bioconductor data packages}
-
-
-=======
+<<>>=
 print(ETABM25.affybatch)
 sampleNames(ETABM25.affybatch)
 colnames(pData(ETABM25.affybatch))
@@ -156,16 +146,16 @@ boxplot(log2(exprs(ETABM25.affybatch)),outline=FALSE)
 @
 
 
-\subsection{Bioconductor data packages}
+\subsection{Using Bioconductor data packages}
 
 <<>>=
 source("http://www.bioconductor.org/biocLite.R")
-biocLite("breastCancerNKI")
-library(breastCancerNKI)
-data(nki)
-pData(nki)
+biocLite("breastCancerVDX")
+library(breastCancerVDX)
+data(vdx)
+pData(vdx)
+
 @
->>>>>>> cf1ee02ccfac72235e96fbd699109ba08a7874ee
 
 \section{Clustering}
 
@@ -447,13 +437,37 @@ summary(chrHgOver)
 \section{Creating a classifer}
 
 <<>>=
-library(pamr)
-dat <- exprs(gse)
-gN <- as.character(fData(gse)$Symbol)
-gI <- featureNames(gse)
-sI <- sampleNames(gse)
+anov <- apply(exprs(nki), 1, function(x) t.test(x ~ pData(nki)$er)$p.value)
 
-train.dat <- list(x = dat, y = SampleGroup, genenames = gN, geneid = gI,sampleid = sI)
+threshold <- quantile(anov, 3000/length(anov))
+
+sub.Expression <- exprs(nki)[which(anov < threshold),]
+
+naVals <- apply(sub.Expression , 1,function(x) any(is.na(x)))
+sub.Expression <- sub.Expression[-which(naVals),]
+library(class)
+
+res <- knn(train = t(sub.Expression), test = t(sub.Expression),
+cl = pData(nki)$er, k = 5)
+
+er.ap <- table(res, pData(nki)$er)
+er.ap <- 1 - sum(diag(er.ap))/sum(er.ap)
+@
+
+
+
+
+<<>>=
+library(pamr)
+dat <- exprs(vdx)
+x<-NULL
+x$x <- dat
+dat <- pamr.knnimpute(x)$x
+gN <- as.character(fData(vdx)$Gene.symbol)
+gI <- featureNames(vdx)
+sI <- sampleNames(vdx)
+
+train.dat <- list(x = dat, y = pData(vdx)$er, genenames = gN, geneid = gI,sampleid = sI)
 model <- pamr.train(train.dat, n.threshold = 100)
 @
 
@@ -466,6 +480,47 @@ model.cv
 pamr.plotcv(model.cv)
 @
 
+
+<<>>=
+Delta <- 8
+pamr.plotcen(model, train.dat, Delta)
+pamr.confusion(model.cv, Delta)
+pamr.plotcvprob(model, train.dat, Delta)
+pamr.geneplot(model, train.dat, Delta)
+@
+
+
+
+<<>>=
+source("http://www.bioconductor.org/biocLite.R")
+biocLite("breastCancerMAINZ")
+library(breastCancerMAINZ)
+data(mainz)
+pData(mainz)
+
+
+table(pamr.predict(model, exprs(mainz), Delta), pData(mainz)$er)
+
+boxplot(pamr.predict(model, exprs(mainz),Delta,type="posterior")[,1]~pData(mainz)$er)
+
+@
+
+
+
+\section{Survival}
+
+<<>>=
+
+plot(survfit(Surv(pData(vdx)$t.dmfs, pData(vdx)$e.dmfs) ~ pData(vdx)$er))
+survdiff(Surv(pData(vdx)$t.dmfs, pData(vdx)$e.dmfs) ~ pData(vdx)$er)
+
+library(genefu)
+data(ssp2003)
+
+intSubtype <- intrinsic.cluster.predict(sbt.model=ssp2003,data=t(exprs(vdx)), annot=fData(vdx), do.mapping=TRUE)$subtype
+plot(survfit(Surv(pData(vdx)$t.dmfs, pData(vdx)$e.dmfs) ~ intSubtype))
+
+@
 
 
 \end{document}
