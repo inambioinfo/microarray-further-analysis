@@ -172,6 +172,8 @@ boxplot(exprs(vdx),outline=F)
 
 \section{Clustering}
 
+We will illustrate the 
+
 \subsection{Filtering the data}
 
 
