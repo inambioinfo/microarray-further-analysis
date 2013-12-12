@@ -1,1 +1,1 @@
-system("R CMD Sweave --pdf GOStats.rnw")
+system("R CMD Sweave --pdf downstream.rnw")
