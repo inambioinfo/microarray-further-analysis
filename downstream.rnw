@@ -73,7 +73,7 @@
 
 
 \maketitle
-\textinfo{Previously in this course, we have presented examples of how to pre-process gene-expression data are  generated on a specific platform (Illumina or Affymetrix) and produce a list of genes that show statistical evidence for differential expression. In most modern microarray experiments this is rarely the end-point of the analysis, and here we will introduce other ways in which we can interrogate our gene expression data, which can be more open-ended or exploratory. The methods that we will apply rely on the data being stored in a common format such as the \Rclass{ExpressionSet} class using in Bioconductor. Hence, we can analyse any microarray technology usign the same steps. Indeed, the data doesn't neccesarily need to be expression data. 
+\textinfo{Previously in this course, we have presented examples of how to pre-process gene-expression data generated on a specific platform (Illumina or Affymetrix) and produce a list of genes that show statistical evidence for differential expression. In most modern microarray experiments this is rarely the end-point of the analysis, and here we will introduce other ways that we can interrogate our gene expression data, which can be more open-ended or exploratory. The methods that we will apply rely on the data being stored in a common format such as the \Rclass{ExpressionSet} class using in Bioconductor. Hence, we can analyse any microarray technology using the same steps. Indeed, the data doesn't neccesarily need to be expression data. 
 
 We will first show how pre-processed data may be obtained from the Gene Expression Omnibus and ArrayExpress repositories, and also from Bioconductor data packages.
 }
@@ -84,6 +84,13 @@ options(width=70);
 
 \section{Dealing with public data}
 This section gives examples of how data can be imported into Bioconductor from the two most-popular data repositories, and via a pre-built Bioconductor pacakges. When importing such datasets, it is important to check the properties of the data to ensure that the distributional assumptions of our methods are valid, and that the appropriate sample meta data are available to allow comparisons to be made. 
+
+\begin{itemize}
+\item{Have the data normalized? If so, what method was used?}
+\item{Has quality control been performed?}
+\item{Is there sufficient sample meta-data to perform the analysis?}
+\item{Are there any batch-effects remaining in the data?}
+\end{itemize}
 
 \subsection{Retrieving public data from GEO}
 
@@ -162,20 +169,20 @@ head(exprs(vdx))
 boxplot(exprs(vdx),outline=F)
 @
 
-\section{Filtering the data}
+
+\section{Clustering}
+
+\subsection{Filtering the data}
+
 
 A first step in the analysis of microarray data is often to remove any uniformative probes. We can do this because typically only 50$\%$ of probes genes will be expressed, and even fewer than this will be differentially expressed. Including such non-informative genes in visualisation will obscure any biological differences that exist with technical noise. The \Rpackage{genefilter} contains a suite of tools for the filtering of microarray data. 
 
 <<genefilter>>=
 library(genefilter)
-annotation(gse) <- "illuminaHumanv3"
 filtData <- varFilter(gse)
 dim(filtData)
 
 @
-
-
-\section{Clustering}
 
 
 \begin{exc}
@@ -231,16 +238,6 @@ ggplot(pcRes, aes(x=SampleGroup,y=PC2,fill=SampleGroup)) + geom_boxplot()
 @
 
 
-<<eval=FALSE>>=
-
-type <- as.factor(pData(gse)$source_name_ch1)
-levels(type) <- brewer.pal("Set1",n = length(levels(type)))
-
-WGCNA:::plotDendroAndColors(clust.cor, colors=as.character(type))
-
-design <- model.matrix(~0+as.factor(pData(gse)$source_name_ch1))
-colnames(design) <- c("Normal", "Tumour")
-@
 
 \section{Producing a heatmap}
 
@@ -269,67 +266,6 @@ mative. For example, the labRow and labCol parameters can be used to give labels
 rows (genes) and columns (arrays) of the heatmap. Similarly, ColSideColors and RowSide-
 Colors give coloured labels, often used to indicate different groups which are know in ad-
 vance. See the help page for heatmap for more details.
-
-\section{Obtaining annotation information}
-Annotation information can be retrieved from Bioconductor to assist in the interpretation
-of array data. In our case we are using the Illumina Human Version 3 chip, which has its an-
-notation in the \Rpackage{illuminaHumanv3.db} package. Similar packages are available for Human6 version
-2 (illuminaHumanv2) and Mouse6 (illuminaMousev1) or affy chips. The illuminaHumanv3
-package contains a series of ’environment’ objects, each of which contains mappings between
-each probe on the Human6 chip and the genome. For example, the mapping between each
-probe and Entrez IDs is provided by theilluminaHumanv3ENTREZID environment. Due to the
-design of this chip, not all probes will map to a Entrez ID, in which case the value of NA is
-returned.
-A list of all such environments can be retrieved by running the command illuminaHumanv1().
-The environments are split into two sections; environment that provide mappings from probes
-on the array to the genome (”Mappings found for probe based rda files”), and mappings
-which go from the genome to probes on the array (”Mappings found for non-probe based rda
-files”).
-
-\begin{exc}
-Load the \Rpackage{illuminHumanv3.db} annotation package. What mappings can be obtained for every probe?
-\end{exc}
-<<>>=
-library(illuminaHumanv3.db)
-illuminaHumanv3()
-@
-
-
-The \Rfunction{mget} function can be used to retrieve annotation information for each probe from a
-particular environment. The parameters passed to the function are the manufacturer IDs
-and the environment we want to look up. It is usually a good idea to also specify \Rfunarg{ifnotfound=NA}. This prevents the function from falling over if we pass an identifier that it can’t find in the environment.
-
-\begin{exc}
-Retrieve the chromosome, refseq and entrez ID for each gene
-\end{exc}
-
-<<>>=
-ids = rownames(exprs(gse))[1:10]
-chr = mget(ids, illuminaHumanv3CHR, ifnotfound = NA)
-refseq = mget(ids, illuminaHumanv3REFSEQ, ifnotfound = NA)
-entrez = mget(ids, illuminaHumanv3ENTREZID, ifnotfound = NA)
-anno = cbind(Ill_ID = as.character(ids), Chr = as.character(chr), RefSeq = as.character(refseq), Entrez=entrez)
-anno
-@
-
-
-Environments can also be used to find which probes on the array map to a particular fea-
-ture from a database, such as a GO term, pathway or gene symbol.
-
-\begin{exc}
-Which probes on this chip are part of the cell cycle using the GO (GO:0007049)
-or KEGG (04110)?
-\end{exc}
-
-<<>>=
-cellCycleProbesGO = mget("GO:0007049", illuminaHumanv3GO2PROBE)
-cellCycleProbesKEGG = mget("04110", illuminaHumanv3PATH2PROBE)
-cellCycleProbesGO[[1]][1:10]
-length(cellCycleProbesKEGG[[1]])
-@
-
-
-
 
 \section{Creating a classifer}
 
@@ -404,7 +340,7 @@ boxplot(pamr.predict(model, exprs(mainz),Delta,type="posterior")[,1]~pData(mainz
 
 
 
-\section{Survival}
+\section{Survival Analysis}
 
 <<>>=
 
@@ -540,8 +476,11 @@ summary(chrHgOver)
 @
 
 
+\section{Appendix}
 
-\subsection{Batch Effects}
+
+
+\subsection{Dealing with Batch Effects}
 
 We will now see an example of a microarray dataset where additional processing is required before we can perform downstream analysis.
 
