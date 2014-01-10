@@ -83,10 +83,10 @@ options(width=70);
 @
 
 \section{Dealing with public data}
-This section gives examples of how data can be imported into Bioconductor from popular data repositories, and via a pre-built Bioconductor pacakges. When importing such datasets, it is important to check the properties of the data to ensure that the distributional assumptions of our methods are valid, and that the appropriate sample meta data are available to allow comparisons to be made. 
+This section gives examples of how data can be imported into Bioconductor from popular data repositories, and via pre-built Bioconductor packages. When importing such datasets, it is important to check the properties of the data to ensure that the distributional assumptions of our methods are valid, and that the appropriate sample meta data are available to allow comparisons to be made. 
 
 \begin{itemize}
-\item{Have the data normalized? If so, what method was used?}
+\item{Have the data been normalized? If so, what method was used?}
 \item{Has quality control been performed?}
 \item{Is there sufficient sample meta-data to perform the analysis?}
 \item{Are there any batch-effects remaining in the data?}
@@ -125,9 +125,11 @@ SampleGroup <- pData(colonData)$source_name_ch1
 Patient <- pData(colonData)$characteristics_ch1.1
 @
 
+\textinfo{We will use this colon cancer dataset later-on to demonstrate clustering and Gene-ontology analysis}
+
 \subsection{Using Bioconductor data packages}
 
-The Bioconductor project has a collection of example datasets. Often these are used as examples to illustrate a particular package or functionality, or to accompany the analysis presented in a publication. For example, several datasets are presented to accompany the \Rpackge{genefu} package which has functions useful for the classification of breast cancer patients based on expression profiles.
+The Bioconductor project has a collection of example datasets. Often these are used as examples to illustrate a particular package or functionality, or to accompany the analysis presented in a publication. For example, several datasets are presented to accompany the \Rpackage{genefu} package which has functions useful for the classification of breast cancer patients based on expression profiles.
 
 An experimental dataset can be installed and loaded as with any other Bioconductor package. The data itself is saved as an object in the package. You will need to see the documentation for the package to find out the relevant object name.
 The full list of datasets available through Bioconductor can be found here {\tt http://tinyurl.com/p5scw4a}. 
@@ -150,6 +152,7 @@ annotation(vdx)
 annotation(transbig)
 @
 
+\textinfo{We will use these datasets to demonstrate clustering and classification}
 
 \section{Clustering}
 
@@ -157,7 +160,7 @@ We will illustrate the principles of clustering using the colon cancer dataset t
 
 \subsection{Filtering the data}
 
-A first step in the analysis of microarray data is often to remove any uniformative probes. We can do this because typically only 50$\%$ of probes genes will be expressed, and even fewer than this will be differentially expressed. Including such non-informative genes in visualisation will obscure any biological differences that exist. The \Rpackage{genefilter} contains a suite of tools for the filtering of microarray data. The \Rfunction{varFilter} function allows probes with low-variance to be removed from the dataset. The metric using to decide which probes to remove is the Inter-Quartile Range (\textit{IQR}), and by default half of the probes are removed. Both the function used to do the filtering, and cut-off can be specified by the user.
+A first step in the analysis of microarray data is often to remove any uniformative probes. We can do this because typically only 50$\%$ of probes genes will be expressed, and even fewer than this will be differentially expressed. Including such non-informative genes in visualisation will obscure any biological differences that exist. The \Rpackage{genefilter} package contains a suite of tools for the filtering of microarray data. The \Rfunction{varFilter} function allows probes with low-variance to be removed from the dataset. The metric using to decide which probes to remove is the Inter-Quartile Range (\textit{IQR}), and by default half of the probes are removed. Both the function used to do the filtering, and cut-off can be specified by the user.
 \begin{exc}
 Remove probes with low-variance from the colon cancer dataset.
 \end{exc}
@@ -305,8 +308,6 @@ Produce a new heatmap with columns ordered according to the tumour / normal stat
 colOrd <- order(SampleGroup)
 colOrd
 heatmap(as.matrix(exprs(varFiltered)[highVarGenes, colOrd]),Colv=NA,labCol=SampleGroup[colOrd])
-
-
 @
 
 \begin{exc}
@@ -548,14 +549,14 @@ lines(density(ttests$statistic[ccInd]),col="red")
 In this section we will use experimental data packages that accompany the \Rpackage{genefu} package to explore the classification of breast cancer.
 
 \begin{exc}
-Load the experimental data packages that have data for the 'vdx' and 'mainz' studies.
+Load the experimental data packages that have data for the 'vdx' and 'transbig' studies.
 \end{exc}
 
 <<>>=
 library(breastCancerVDX)
-library(breastCancerMAINZ)
+library(breastCancerTRANSBIG)
 data(vdx)
-data(mainz)
+data(transbig)
 @
 
 If we want any classifers to be reproducible and applicable to other datasets, it is sensible to exclude probes that do not have sufficient annotation from the analysis. For this, we can use the \Rpackage{genefilter} package as before. The \Rfunction{nsFilter} function performs this annotation-based filtering as well as variance filtering. The output of the function includes details about how many probes were removed at each stage of the filtering.
@@ -592,6 +593,7 @@ heatmap(exprs(vdx.filt)[topVar,], ColSideColors=as.character(erCol))
 
 @
 
+
 %%\subsection{knn}
 
 %%<<>>=
@@ -613,6 +615,23 @@ heatmap(exprs(vdx.filt)[topVar,], ColSideColors=as.character(erCol))
 %%er.ap <- table(res, pData(mainz)$er)
 %%er.ap <- 1 - sum(diag(er.ap))/sum(er.ap)
 %%@
+
+
+
+%%<<>>=
+%%library(e1071)
+%%data <- t(dat)
+%%labels <- erStatus
+%%svm.model <- svm(data,labels,type="C-classification",kernel="linear")
+
+%%predicted <- predict(svm.model, data) #
+%%sum(predicted != labels)
+%%table(true=labels, pred=predicted)
+
+%%svm.cross <- svm(data,labels, type="C-classification",
+%%kernel="linear", cross=10)
+%%@
+
 
 We will now attempt to build a classifier using the {\tt pamr} (Predication analysis of Microarrays) \footnote{Not to be confused with the Partition Around Medioids method of clustering!} package.
 
@@ -749,18 +768,25 @@ heatmap(exprs(transbig.filt)[classifierGenes,],labRow=symbols,ColSideColors=as.c
 \section{Survival Analysis}
 
 <<>>=
+library(survival)
+par(mfrow=c(1,2))
 
-plot(survfit(Surv(pData(vdx)$t.dmfs, pData(vdx)$e.dmfs) ~ pData(vdx)$er))
+plot(survfit(Surv(pData(vdx)$t.dmfs, pData(vdx)$e.dmfs) ~ pData(vdx)$er),col=c("cyan","salmon"))
+plot(survfit(Surv(pData(vdx)$t.dmfs, pData(vdx)$e.dmfs) ~ pData(vdx)$grade),col=c("blue","yellow","orange"))
+
 survdiff(Surv(pData(vdx)$t.dmfs, pData(vdx)$e.dmfs) ~ pData(vdx)$er)
-
-library(genefu)
-data(ssp2003)
-
-intSubtype <- intrinsic.cluster.predict(sbt.model=ssp2003,data=t(exprs(vdx)), annot=fData(vdx), do.mapping=TRUE)$subtype
-plot(survfit(Surv(pData(vdx)$t.dmfs, pData(vdx)$e.dmfs) ~ intSubtype))
+survdiff(Surv(pData(vdx)$t.dmfs, pData(vdx)$e.dmfs) ~ pData(vdx)$grade)
 
 @
 
+<<>>=
+d <- dist(t(exprs(vdx.filt)))
+plot(hclust(d))
+cluslabs <- cutree(hclust(d), k=2)
+
+plot(survfit(Surv(pData(vdx)$t.dmfs, pData(vdx)$e.dmfs) ~ cluslabs))
+survdiff(Surv(pData(vdx)$t.dmfs, pData(vdx)$e.dmfs) ~ cluslabs)
+@
 
 
 \section{Appendix}
