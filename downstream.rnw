@@ -127,6 +127,8 @@ Patient <- pData(colonData)$characteristics_ch1.1
 
 \textinfo{We will use this colon cancer dataset later-on to demonstrate clustering and Gene-ontology analysis}
 
+\textinfo{The \Rpackage{ArrayExpress} package can be used in a similar way to download data from the ArrayExpress repository}
+
 \subsection{Using Bioconductor data packages}
 
 The Bioconductor project has a collection of example datasets. Often these are used as examples to illustrate a particular package or functionality, or to accompany the analysis presented in a publication. For example, several datasets are presented to accompany the \Rpackage{genefu} package which has functions useful for the classification of breast cancer patients based on expression profiles.
@@ -797,11 +799,6 @@ survdiff(Surv(pData(vdx)$t.dmfs, pData(vdx)$e.dmfs) ~ cluslabs)
 Download the dataset E-TABM-25
 \end{exc}
 
-<<>>=
-library(ArrayExpress)
-ETABM25.affybatch = ArrayExpress("E-TABM-25")
-ETABM25.affybatch 
-@
 
 <<>>=
 print(ETABM25.affybatch)
@@ -809,55 +806,6 @@ sampleNames(ETABM25.affybatch)
 colnames(pData(ETABM25.affybatch))
 head(exprs(ETABM25.affybatch))
 boxplot(log2(exprs(ETABM25.affybatch)),outline=FALSE)
-
-@
-
-
-
-\subsection{Dealing with Batch Effects}
-
-We will now see an example of a microarray dataset where additional processing is required before we can perform downstream analysis.
-
-<<>>=
-url <- "ftp://ftp.ncbi.nih.gov/pub/geo/DATA/SeriesMatrix/GSE5350/"
-filenm <- "GSE5350-GPL2507_series_matrix.txt.gz"
-download.file(paste(url, filenm, sep=""), destfile=filenm)
-colonDta <- getGEO(filename=filenm)
-
-dim(colonData)
-exprs(gse)[1:5,1:2]
- 
-samples <- as.character(pData(gse)[,"title"])
-sites <- as.numeric(substr(samples,10,10))
-shortlabels <- substr(samples,12,13)
-
-rnasource <- pData(gse)[,"source_name_ch1"]
-levels(rnasource) <- c("UHRR", "Brain", "UHRR75", "UHRR25")
-
-d <- dist(t(exprs(gse)))
-pc <- princomp(d)
-
-boxplot(log2(exprs(gse)), col=sites+1, names=shortlabels, las=2, cex.names=0.5, ylab=expression(log[2](intensity)), outline=FALSE, ylim=c(3,10), main="Before batch correction")
-@
-
-<<>>=
-gse.batchcorrect <- removeBatchEffect(log2(exprs(gse)), batch=sites)
-boxplot(gse.batchcorrect, col=sites+1, names=shortlabels, las=2, cex.names=0.5, ylab=expression(log[2](intensity)), outline=FALSE, ylim=c(3,10), main="After batch correction")
-d2 <- dist(t(gse.batchcorrect))
-pc2 <- princomp(d2)
-
-p2<-qplot(pc2$loadings[,1], pc2$loadings[,2],col=rnasource,pch=as.factor(Lab), main="With Correction")+xlab("PC1") + ylab("PC2")
-
-@
-
-<<>>=
-library(sva)
-mod <- model.matrix(~as.factor(rnasource))
-gse.combat <- ComBat(exprs(gse), batch = sites, mod=mod,numCovs=NULL,par.prior=TRUE)
-d2 <- dist(t(gse.combat))
-pc2 <- princomp(d2)
-
-p2<-qplot(pc2$loadings[,1], pc2$loadings[,2],col=rnasource,pch=as.factor(Lab), main="With Correction")+xlab("PC1") + ylab("PC2")
 
 @
 
