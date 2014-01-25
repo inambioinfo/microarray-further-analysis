@@ -74,16 +74,14 @@
 
 \maketitle
 \textinfo{Previously in this course, we have presented examples of how to pre-process gene-expression data generated on a specific platform (Illumina or Affymetrix) and produce a list of genes that show statistical evidence for differential expression. In most modern microarray experiments this is rarely the end-point of the analysis, and here we will introduce other ways that we can interrogate our gene expression data, which can be more open-ended or exploratory. The methods that we will apply rely on the data being stored in a common format such as the \Rclass{ExpressionSet} class using in Bioconductor. Hence, we can analyse any microarray technology using the same steps. Indeed, the data doesn't neccesarily need to be expression data. 
-
-We will use example datasets from Gene Expression Omnibus and a Bioconductor data package. Details of how to obtain these data are given in the first section.
 }
 
 <<setWidth, eval=TRUE, echo=FALSE>>=
 options(width=70);
 @
 
-\section{Dealing with public data}
-This section gives examples of how data can be imported into Bioconductor from popular data repositories, and via pre-built Bioconductor packages. When importing such datasets, it is important to check the properties of the data to ensure that the distributional assumptions of our methods are valid, and that the appropriate sample meta data are available to allow comparisons to be made. 
+
+We will use example datasets from Gene Expression Omnibus and a Bioconductor data package. When importing such datasets, it is important to check the properties of the data to ensure that the distributional assumptions of our methods are valid, and that the appropriate sample meta data are available to allow comparisons to be made. 
 
 \begin{itemize}
 \item{Have the data been normalized? If so, what method was used?}
@@ -92,10 +90,13 @@ This section gives examples of how data can be imported into Bioconductor from p
 \item{Are there any batch-effects remaining in the data?}
 \end{itemize}
 
-\subsection{Retrieving public data from GEO}
+\textinfo{Section 1 will illustrates unsupervised exploratory analysis techniques and also a Gene Ontology analysis. Section 2 will use  a supervised approach to find a classifier for breast cancer samples.}
+
+\section{Colon cancer data from GEO}
 
 We will consider GSE33126, which comprises nine paired tumor/normal colon tissues on Illumina HT12\_v3 gene expression Beadchips. These data were generated to inform a comparison of technologies for microRNA profiling. However, we will only use the mRNA data here. 
 
+You should already have the raw GEO data on your computer. If not, it can be downloaded from the GEO website and then imported into R using {\tt GEOquery}.
 \begin{exc}
 Download the dataset with GEO ID GSE33126 and import the data using the \Rpackage{GEOquery} package.
 \end{exc}
@@ -125,44 +126,15 @@ SampleGroup <- pData(colonData)$source_name_ch1
 Patient <- pData(colonData)$characteristics_ch1.1
 @
 
-\textinfo{We will use this colon cancer dataset later-on to demonstrate clustering and Gene-ontology analysis}
+
 
 \textinfo{The \Rpackage{ArrayExpress} package can be used in a similar way to download data from the ArrayExpress repository}
 
-\subsection{Using Bioconductor data packages}
-
-The Bioconductor project has a collection of example datasets. Often these are used as examples to illustrate a particular package or functionality, or to accompany the analysis presented in a publication. For example, several datasets are presented to accompany the \Rpackage{genefu} package which has functions useful for the classification of breast cancer patients based on expression profiles.
-
-An experimental dataset can be installed and loaded as with any other Bioconductor package. The data itself is saved as an object in the package. You will need to see the documentation for the package to find out the relevant object name.
-The full list of datasets available through Bioconductor can be found here {\tt http://tinyurl.com/p5scw4a}. 
-
-\begin{exc}
-Install the {\tt breastCancerVDX}, {\tt breastCanceTRANSBIG} datasets. What microarray platform were they generated on? How many samples are in each dataset?
-\end{exc}
-
-<<>>=
-source("http://www.bioconductor.org/biocLite.R")
-biocLite(c("breastCancerVDX", "breastCancerTRANSBIG"))
-library(breastCancerVDX)
-library(breastCancerTRANSBIG)
-data(vdx)
-data(transbig)
-
-dim(vdx)
-dim(transbig)
-annotation(vdx)
-annotation(transbig)
-@
-
-\textinfo{We will use these datasets to demonstrate clustering and classification}
-
-\section{Clustering}
-
-We will illustrate the principles of clustering using the colon cancer dataset that we downloaded from GEO. 
 
 \subsection{Filtering the data}
 
 A first step in the analysis of microarray data is often to remove any uniformative probes. We can do this because typically only 50$\%$ of probes genes will be expressed, and even fewer than this will be differentially expressed. Including such non-informative genes in visualisation will obscure any biological differences that exist. The \Rpackage{genefilter} package contains a suite of tools for the filtering of microarray data. The \Rfunction{varFilter} function allows probes with low-variance to be removed from the dataset. The metric using to decide which probes to remove is the Inter-Quartile Range (\textit{IQR}), and by default half of the probes are removed. Both the function used to do the filtering, and cut-off can be specified by the user.
+
 \begin{exc}
 Remove probes with low-variance from the colon cancer dataset.
 \end{exc}
@@ -187,7 +159,7 @@ Construct a matrix of Euclidean distances for the variance-filtered dataset
 euc.dist <- dist(t(exprs(varFiltered)))
 euc.dist
 @
-For gene-expression data, it is common to use correlation as a distance metric than the Euclidean. \textit{You should make sure that you know the difference between the two metrics}. The \Rfunction{cor} function can be used to calculate the correlation of columns in a matrix. Each row (or column) in the resulting matrix is the correlation of that sample with all other samples in the dataset. We can transform this into a distance matrix by subtracting 1 from the correlation matrix. Hence, samples with a higher correlation have a smaller 'distance'. 
+For gene-expression data, it is common to use correlation as a distance metric rather than the Euclidean. \textit{You should make sure that you know the difference between the two metrics}. The \Rfunction{cor} function can be used to calculate the correlation of columns in a matrix. Each row (or column) in the resulting matrix is the correlation of that sample with all other samples in the dataset. The matrix is symmetrical and we can transform this into a distance matrix by first subtracting 1 from the correlation matrix. Hence, samples with a higher correlation have a smaller 'distance'. 
 
 \begin{exc}
 Calculate a matrix of sample correlations and transform into a distance matrix
@@ -249,7 +221,7 @@ table(cutree(clust.cor, k = 3),SampleGroup)
 
 @
 
-A \textit{Silhouette plot} can be used to choose the optimal number of clusters. For each sample, we calculate a value that quantifies how well it 'fits' the cluster that it has been assigned to. If the values is around 1, then the sample closely fits other samples in the same cluster. However, if the value is around 0 the sample could belong to another cluster. In the silhouette plot, the values for each cluster are plotted together and ordered from largest to smallest. The number of samples belonging to each sample is also displayed. 
+A \textit{Silhouette plot} can be used to choose the optimal number of clusters. For each sample, we calculate a value that quantifies how well it 'fits' the cluster that it has been assigned to. If the value is around 1, then the sample closely fits other samples in the same cluster. However, if the value is around 0 the sample could belong to another cluster. In the silhouette plot, the values for each cluster are plotted together and ordered from largest to smallest. The number of samples belonging to each group is also displayed. 
 
 \begin{exc}
 Produce silhouette plots for the result of cutting the dendrogram to give 2,3,4 and 5 clusters. Which value of {\tt k} seems to be the most sensible?
@@ -278,15 +250,14 @@ table(pam.clus$clustering,SampleGroup)
 
 
 
-\section{Producing a heatmap}
+\subsection{Producing a heatmap}
 
 A heatmap is often used to visualise differences between samples. Each row represents a
 gene and each column is an array and coloured cells indicate the expression levels of genes. Both
 samples and genes with similar expression profile are clustered together. By default, euclidean distances are used with complete linkage clustering.
 
 Drawing a heatmap in R uses a lot of memory and can take a long time, therefore reducing
-the amount of data to be plotted is usually recommended. Typically, data are filtered to in-
-clude the genes which tell us the most about the biological variation. In an \textit{un-supervised} setting, the selection of such genes is done without using prior knowledge about the sample groupings.
+the amount of data to be plotted is usually recommended. Including too many non-informative genes can also make it difficult to spot patterns. Typically, data are filtered to include the genes which tell us the most about the biological variation. In an \textit{un-supervised} setting, the selection of such genes is done without using prior knowledge about the sample groupings.
 
 
 \begin{exc}
@@ -350,6 +321,9 @@ hmcol<-brewer.pal(11,"RdBu")
 heatmap(as.matrix(exprs(varFiltered)[highVarGenes, ]), ColSideColors=as.character(labs),labRow=Symbols,col=hmcol)
 @
 
+\textinfo{You should avoid using the traditional red / green colour scheme as it may be difficult for people with colour-blindness to interpret}
+
+
 A popular use for heatmaps is to take an existing gene list (e.g. genes found to be significant in a previous study, or genes belonging to a particular pathway) and produce an image of how they cluster the data for exploratory purposes. This can be achieved easily by selecting the correct rows in the data matrix. 
 
 \begin{exc}
@@ -366,8 +340,8 @@ heatmap(as.matrix(exprs(varFiltered)[pathwayGenes, ]), ColSideColors=as.characte
 
 @
 
-\section{Principal Components Analysis}
-Principal components analysis (PCA) is a data reduction technique that allows to simplify multidimensional data sets to 2 or 3 dimensions for plotting purposes and identify which factors explain the most variability in the data. We can use the \Rfunction{prcomp} function to perform a PCA and we have to supply it with a distance matrix. The resulting object contains information on the proportion of variance that is 'explained' by each component. Ideally, we want to see that the majority of the variance is explained by the first 2 or 3 components, and that these components are associated with a biological factor
+\subsection{Principal Components Analysis}
+Principal components analysis (PCA) is a data reduction technique that allows us to simplify multidimensional data sets to 2 or 3 dimensions for plotting purposes and identify which factors explain the most variability in the data. We can use the \Rfunction{prcomp} function to perform a PCA and we have to supply it with a distance matrix. The resulting object contains information on the proportion of variance that is 'explained' by each component. Ideally, we want to see that the majority of the variance is explained by the first 2 or 3 components, and that these components are associated with a biological factor
 
 \begin{exc}
 Perform a PCA on the correlation distances. How much variation is explained by the first two components?
@@ -405,10 +379,10 @@ ggplot(pcRes, aes(x=SampleGroup,y=PC1,fill=SampleGroup)) + geom_boxplot()
 ggplot(pcRes, aes(x=SampleGroup,y=PC2,fill=SampleGroup)) + geom_boxplot()
 @
 
-\section{Gene-Ontology analysis}
+\subsection{Gene-Ontology analysis}
 In this section we give an example of how to find a list of relevant pathways / GO terms from a list of differentially-expressed genes. We will use the colon cancer data that we downloaded from GEO.
 
-\subsection{Non-specific filtering}
+\subsubsection{Non-specific filtering}
 We are now going to create a gene universe by removing genes for will not contribute to
 the subsequent analysis. Such filtering is done without regarding the phenotype variables -
 hence a ”non-specific” filter.
@@ -440,10 +414,9 @@ is made artificially large by including too many uninformative probes, the p-val
 GO terms will appear more significant.
 
 
-\subsection{Selecting genes of interest and performing Hypergeometric test}
+\subsubsection{Selecting genes of interest and performing Hypergeometric test}
 
-We now test the genes in the universe to see which ones have significant differences be-
-tween the two groups. For this, we use the \Rfunction{rowttests} function implemented in the \Rpackage{genefilter} package, which performs a t-test for each row with respect to a factor. The p-values of the
+We now test the genes in the universe to see which ones have significant differences between the two groups. For this, we use the \Rfunction{rowttests} function implemented in the \Rpackage{genefilter} package, which performs a t-test for each row with respect to a factor. The p-values of the
 test can be extracted, with one p-value given for each probe.
 
 \begin{exc}
@@ -546,20 +519,32 @@ plot(density(ttests$statistic))
 lines(density(ttests$statistic[ccInd]),col="red")
 @
 
-\section{Creating a classifer - breast cancer example}
 
-In this section we will use experimental data packages that accompany the \Rpackage{genefu} package to explore the classification of breast cancer.
+\section{Using Bioconductor data packages}
+
+The Bioconductor project has a collection of example datasets. Often these are used as examples to illustrate a particular package or functionality, or to accompany the analysis presented in a publication. For example, several datasets are presented to accompany the \Rpackage{genefu} package which has functions useful for the classification of breast cancer patients based on expression profiles.
+
+An experimental dataset can be installed and loaded as with any other Bioconductor package. The data itself is saved as an object in the package. You will need to see the documentation for the package to find out the relevant object name.
+The full list of datasets available through Bioconductor can be found here {\tt http://tinyurl.com/p5scw4a}. 
 
 \begin{exc}
-Load the experimental data packages that have data for the 'vdx' and 'transbig' studies.
+Install the {\tt breastCancerVDX}, {\tt breastCanceTRANSBIG} datasets. What microarray platform were they generated on? How many samples are in each dataset?
 \end{exc}
 
 <<>>=
+source("http://www.bioconductor.org/biocLite.R")
+biocLite(c("breastCancerVDX", "breastCancerTRANSBIG"))
 library(breastCancerVDX)
 library(breastCancerTRANSBIG)
 data(vdx)
 data(transbig)
+
+dim(vdx)
+dim(transbig)
+annotation(vdx)
+annotation(transbig)
 @
+
 
 If we want any classifers to be reproducible and applicable to other datasets, it is sensible to exclude probes that do not have sufficient annotation from the analysis. For this, we can use the \Rpackage{genefilter} package as before. The \Rfunction{nsFilter} function performs this annotation-based filtering as well as variance filtering. The output of the function includes details about how many probes were removed at each stage of the filtering.
 
@@ -572,26 +557,6 @@ library(genefilter)
 vdx.filt <- nsFilter(vdx)
 vdx.filt
 vdx.filt <- vdx.filt[[1]]
-
-@
-
-\begin{exc}
-\textbf{Optional} If you have time, use some of the techniques from earlier in the practical to explore the VDX data
-\end{exc}
-
-<<>>=
-
-pr <- prcomp(dist(t(exprs(vdx.filt))))
-pcRes <- data.frame(pr$rotation,SampleGroup=pData(vdx)$er,Sample = rownames(pr$x))
-
-ggplot(pcRes, aes(x=PC1,y=PC2,col=as.factor(SampleGroup))) + geom_point()
-
-iqrs <- apply(exprs(vdx.filt),1,IQR)
-topVar <- order(iqrs, decreasing=F)[1:50]
-
-erCol <- as.factor(pData(vdx)$er)
-levels(erCol) <- c("blue","yellow")
-heatmap(exprs(vdx.filt)[topVar,], ColSideColors=as.character(erCol))
 
 @
 
@@ -699,7 +664,7 @@ pamr.plotcvprob(model, train.dat, Delta)
 
 There are a couple of ways of extract the details of the genes that have been used in the classifier. We can list their names using the \Rfunction{pamr.listgenes} function, which in our  case these are just returns the microarray probe names. We can however, use these IDs to query the featureData stored with the original {\tt vdx} object. We can also plot the expression values for each gene, coloured according to the class label.
 
-\noteright{You may get an error message {\tt Error in plot.new(): Figure margins too large} when trying to produce the gene plot. If this occurs, try increasing the size of your plotting window, or decrease the number of genes by decreasing the threshold.}
+
 \begin{exc}
 Extract the details of the probes used in the classifier and plot each one
 \end{exc}
@@ -712,6 +677,17 @@ pamr.geneplot(model, train.dat, Delta)
 
 @
 
+\noteright{You may get an error message {\tt Error in plot.new(): Figure margins too large} when trying to produce the gene plot. If this occurs, try increasing the size of your plotting window, or decrease the number of genes by decreasing the threshold. Alternatively, the following code will write the plots to a pdf.}
+
+<<>>=
+pdf("classifierProfiles.pdf")
+for(i in 1:length(classifierGenes)){
+  Symbol <- fData(vdx.filt)[classifierGenes[i],"Gene.symbol"]
+  boxplot(exprs(vdx.filt)[classifierGenes[i],]~erStatus,main=Symbol)
+  }
+dev.off()
+@
+
 %%<<>>=
 %%library(reshape)
 %%geneMat <- melt(exprs(vdx.filt)[classifierGenes,order(erStatus)])
@@ -720,7 +696,7 @@ pamr.geneplot(model, train.dat, Delta)
 %%@
 
 \begin{exc}
-Use the genes identified by the classifier to produce a heatmap
+Use the genes identified by the classifier to produce a heatmap to confirm that they separate the samples as expected.
 \end{exc}
 
 <<>>=
@@ -767,7 +743,38 @@ heatmap(exprs(transbig.filt)[classifierGenes,],labRow=symbols,ColSideColors=as.c
 @
 
 
-\section{Survival Analysis}
+
+
+\section{Optional Extensions}
+
+
+\subsection{Clustering and classification on the VDX datasets}
+
+
+\begin{exc}
+\textbf{Optional} If you have time, use some of the techniques from earlier in the practical to explore the VDX data
+\end{exc}
+
+<<>>=
+
+pr <- prcomp(dist(t(exprs(vdx.filt))))
+pcRes <- data.frame(pr$rotation,SampleGroup=pData(vdx)$er,Sample = rownames(pr$x))
+
+ggplot(pcRes, aes(x=PC1,y=PC2,col=as.factor(SampleGroup))) + geom_point()
+
+iqrs <- apply(exprs(vdx.filt),1,IQR)
+topVar <- order(iqrs, decreasing=F)[1:50]
+
+erCol <- as.factor(pData(vdx)$er)
+levels(erCol) <- c("blue","yellow")
+heatmap(exprs(vdx.filt)[topVar,], ColSideColors=as.character(erCol))
+
+@
+
+\subsection{Survival Analysis}
+
+An attractive feature of the {\tt vdx} dataset is that it includes \textit{survival} data for each breast cancer patient. We are not explicitly covering survival analysis in this course, but for your reference, here are the commands to create survival curves when patients are grouped by ER status and tumour grade.
+
 
 <<>>=
 library(survival)
@@ -778,34 +785,6 @@ plot(survfit(Surv(pData(vdx)$t.dmfs, pData(vdx)$e.dmfs) ~ pData(vdx)$grade),col=
 
 survdiff(Surv(pData(vdx)$t.dmfs, pData(vdx)$e.dmfs) ~ pData(vdx)$er)
 survdiff(Surv(pData(vdx)$t.dmfs, pData(vdx)$e.dmfs) ~ pData(vdx)$grade)
-
-@
-
-<<>>=
-d <- dist(t(exprs(vdx.filt)))
-plot(hclust(d))
-cluslabs <- cutree(hclust(d), k=2)
-
-plot(survfit(Surv(pData(vdx)$t.dmfs, pData(vdx)$e.dmfs) ~ cluslabs))
-survdiff(Surv(pData(vdx)$t.dmfs, pData(vdx)$e.dmfs) ~ cluslabs)
-@
-
-
-\section{Appendix}
-
-\subsection{Downloading data from ArrayExpress}
-
-\begin{exc}
-Download the dataset E-TABM-25
-\end{exc}
-
-
-<<>>=
-print(ETABM25.affybatch)
-sampleNames(ETABM25.affybatch)
-colnames(pData(ETABM25.affybatch))
-head(exprs(ETABM25.affybatch))
-boxplot(log2(exprs(ETABM25.affybatch)),outline=FALSE)
 
 @
 
