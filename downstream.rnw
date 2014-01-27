@@ -96,7 +96,7 @@ We will use example datasets from Gene Expression Omnibus and a Bioconductor dat
 
 We will consider GSE33126, which comprises nine paired tumor/normal colon tissues on Illumina HT12\_v3 gene expression Beadchips. These data were generated to inform a comparison of technologies for microRNA profiling. However, we will only use the mRNA data here. 
 
-You should already have the raw GEO data on your computer. If not, it can be downloaded from the GEO website and then imported into R using {\tt GEOquery}.
+You should already have the raw GEO data on your computer in the {\tt Downstream} folder. If not, it can be downloaded from the GEO website and then imported into R using {\tt GEOquery}.
 \begin{exc}
 Download the dataset with GEO ID GSE33126 and import the data using the \Rpackage{GEOquery} package.
 \end{exc}
@@ -532,8 +532,6 @@ Install the {\tt breastCancerVDX}, {\tt breastCanceTRANSBIG} datasets. What micr
 \end{exc}
 
 <<>>=
-source("http://www.bioconductor.org/biocLite.R")
-biocLite(c("breastCancerVDX", "breastCancerTRANSBIG"))
 library(breastCancerVDX)
 library(breastCancerTRANSBIG)
 data(vdx)
