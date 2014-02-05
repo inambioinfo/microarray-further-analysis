@@ -1,80 +1,36 @@
-%\VignetteIndexEntry{BeadArrayUseCases Vignette}
-%\VignetteDepends{}
-%\VignetteKeywords{Illumina Microarray Expression}
-%\VignettePackage{BeadArrayUseCases}
 
-\documentclass[a4paper,11pt]{article}
+% To compile this document
+% library('knitr'); rm(list=ls()); knit('illumina-prac.Rnw')
 
-\textwidth=6.2in
-\textheight=8.5in
-\oddsidemargin=.1in
-\evensidemargin=.1in
-\headheight=-.3in
-\parindent=0pt
+\documentclass[12pt]{article}
+\usepackage{wasysym,marvosym}
+\newcommand{\usecase}{\textit{\textbf{Use Case: }}}
+\newcommand{\notebell}{\bell}
+\newcommand{\noteright}{\Pointinghand}
+\newcommand{\textinfo}{\Info}
+
+<<knitr, echo=FALSE, results="hide">>=
+library("knitr")
+opts_chunk$set(tidy=FALSE,dev="png",fig.show="hide",
+               fig.width=4,fig.height=4.5,
+               message=FALSE,eval=F)
+@ 
+
+<<style, eval=TRUE, echo=FALSE, results="asis">>=
+BiocStyle::latex()
+@
 
 
-\usepackage{amsthm,ragged2e,marvosym,wasysym}
-\usepackage{mls40Sweave}
-\usepackage[utf8]{inputenc}
-\usepackage{sidecap}
-
-\newcommand{\Rfunction}[1]{{\texttt{#1}}}
-\newcommand{\Robject}[1]{{\texttt{#1}}}
-\newcommand{\Rpackage}[1]{{\textsf{#1}}}
-\newcommand{\Rmethod}[1]{{\texttt{#1}}}
-\newcommand{\Rfunarg}[1]{{\texttt{#1}}}
-\newcommand{\Rclass}[1]{{\textit{#1}}}
-
-\SweaveOpts{eval=FALSE, keep.source=FALSE, results=hide}
-
-\title{Further analysis of microarray data in Bioconductor}
+\title{Further Analysis of microarray data in Bioconductor}
 
 \author{Mark Dunning}
-
-
-\renewcommand\labelenumi{\textbf{Exercise \theenumi}}
-
-
-% Sweave("IlluminaPLoSVignette.rnw")
-\newtheoremstyle{labexc}%
-{9pt}{12pt}%      space above and below
-{\sffamily\RaggedRight}%              body style
-{0pt}%       heading indent amount
-{\sffamily\bfseries}{:}% heading font and punctuation after it
-{ }%         space after heading is a new line
-{}%          head spec (empty = same as 'plain' style)
-
-\newtheoremstyle{myplain}%
-{9pt}{9pt}%      space above and below
-{\RaggedRight}%              body style
-{0pt}%       heading indent amount
-{\sffamily\bfseries}{}% heading font and punctuation after it
-{ }%         space after heading is a new line
-{}%          head spec (empty = same as 'plain' style)
-
-\newtheoremstyle{mywarning}%
-{9pt}{9pt}%      space above and below
-{\itshape\RaggedRight}%              body style
-{0pt}%       heading indent amount
-{\sffamily\bfseries}{}% heading font and punctuation after it
-{ }%         space after heading is a new line
-{}%          head spec (empty = same as 'plain' style)
-
-\theoremstyle{myplain} \newtheorem*{textinfo}{\large\Info}
-\theoremstyle{labexc} \newtheorem*{exc}{Use Case}
-\theoremstyle{mywarning} \newtheorem*{notebell}{\Large\bell}
-\theoremstyle{myplain} \newtheorem*{noteright}{\Large\Pointinghand}
-\theoremstyle{myplain} \newtheorem*{textstop}{\Large\Stopsign}
-\theoremstyle{myplain} \newtheorem*{commentary}{\Large\CheckedBox}
-
-
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \begin{document}
-
-
 \maketitle
-\textinfo{Previously in this course, we have presented examples of how to pre-process gene-expression data generated on a specific platform (Illumina or Affymetrix) and produce a list of genes that show statistical evidence for differential expression. In most modern microarray experiments this is rarely the end-point of the analysis, and here we will introduce other ways that we can interrogate our gene expression data, which can be more open-ended or exploratory. The methods that we will apply rely on the data being stored in a common format such as the \Rclass{ExpressionSet} class using in Bioconductor. Hence, we can analyse any microarray technology using the same steps. Indeed, the data doesn't neccesarily need to be expression data. 
-}
+\tableofcontents
+
+\textinfo Previously in this course, we have presented examples of how to pre-process gene-expression data generated on a specific platform (Illumina or Affymetrix) and produce a list of genes that show statistical evidence for differential expression. In most modern microarray experiments this is rarely the end-point of the analysis, and here we will introduce other ways that we can interrogate our gene expression data, which can be more open-ended or exploratory. The methods that we will apply rely on the data being stored in a common format such as the \Rclass{ExpressionSet} class using in Bioconductor. Hence, we can analyse any microarray technology using the same steps. Indeed, the data doesn't neccesarily need to be expression data. 
+
 
 <<setWidth, eval=TRUE, echo=FALSE>>=
 options(width=70);
@@ -90,16 +46,15 @@ We will use example datasets from Gene Expression Omnibus and a Bioconductor dat
 \item{Are there any batch-effects remaining in the data?}
 \end{itemize}
 
-\textinfo{Section 1 will illustrates unsupervised exploratory analysis techniques and also a Gene Ontology analysis. Section 2 will use  a supervised approach to find a classifier for breast cancer samples.}
+\textinfo Section 1 will illustrates unsupervised exploratory analysis techniques and also a Gene Ontology analysis. Section 2 will use  a supervised approach to find a classifier for breast cancer samples.
 
 \section{Colon cancer data from GEO}
 
 We will consider GSE33126, which comprises nine paired tumor/normal colon tissues on Illumina HT12\_v3 gene expression Beadchips. These data were generated to inform a comparison of technologies for microRNA profiling. However, we will only use the mRNA data here. 
 
 You should already have the raw GEO data on your computer in the {\tt Downstream} folder. If not, it can be downloaded from the GEO website and then imported into R using {\tt GEOquery}.
-\begin{exc}
+\usecase
 Download the dataset with GEO ID GSE33126 and import the data using the \Rpackage{GEOquery} package.
-\end{exc}
 
 <<>>=
 library(GEOquery)
@@ -112,9 +67,8 @@ colonData <- getGEO(filename=filenm)
 
 We now need to explore the data to ensure that they have been normalised and are on an appropriate scale for analysis.
 
-\begin{exc}
+\usecase
 Are the data on the log$_2$ scale? Are they normalised? Look at the phenotypic data stored with the object and find information about the sample groups in the study and patient IDs.
-\end{exc}
 
 <<>>=
 head(exprs(colonData))
@@ -128,16 +82,15 @@ Patient <- pData(colonData)$characteristics_ch1.1
 
 
 
-\textinfo{The \Rpackage{ArrayExpress} package can be used in a similar way to download data from the ArrayExpress repository}
+\textinfo The \Rpackage{ArrayExpress} package can be used in a similar way to download data from the ArrayExpress repository
 
 
 \subsection{Filtering the data}
 
 A first step in the analysis of microarray data is often to remove any uniformative probes. We can do this because typically only 50$\%$ of probes genes will be expressed, and even fewer than this will be differentially expressed. Including such non-informative genes in visualisation will obscure any biological differences that exist. The \Rpackage{genefilter} package contains a suite of tools for the filtering of microarray data. The \Rfunction{varFilter} function allows probes with low-variance to be removed from the dataset. The metric using to decide which probes to remove is the Inter-Quartile Range (\textit{IQR}), and by default half of the probes are removed. Both the function used to do the filtering, and cut-off can be specified by the user.
 
-\begin{exc}
+\usecase
 Remove probes with low-variance from the colon cancer dataset.
-\end{exc}
 
 <<genefilter>>=
 library(genefilter)
@@ -151,9 +104,8 @@ nrow(colonData) / nrow(varFiltered)
 \subsection{Calculating a distance matrix}
 The first step towards clustering the data is to construct a \textit{distance matrix}. Each entry in this matrix is the pairwise distance between two samples. Note that for expression data we have to transpose the standard ExpressionSet format, as clustering is designed to work on rows rather than columns. The standard function to make a distance matrix in R is \Rfunction{dist} which uses the \textit{euclidean} metric. As the data entries in a distance matrix are symmetrical, it has a different representation to the default matrix (i.e. values are not repeated unnecessarily), and clustering algorithms are able to accept this representation as input.
 
-\begin{exc}
+\usecase
 Construct a matrix of Euclidean distances for the variance-filtered dataset
-\end{exc}
 
 <<distanceMatrix>>=
 euc.dist <- dist(t(exprs(varFiltered)))
@@ -161,25 +113,23 @@ euc.dist
 @
 For gene-expression data, it is common to use correlation as a distance metric rather than the Euclidean. \textit{You should make sure that you know the difference between the two metrics}. The \Rfunction{cor} function can be used to calculate the correlation of columns in a matrix. Each row (or column) in the resulting matrix is the correlation of that sample with all other samples in the dataset. The matrix is symmetrical and we can transform this into a distance matrix by first subtracting 1 from the correlation matrix. Hence, samples with a higher correlation have a smaller 'distance'. 
 
-\begin{exc}
+\usecase
 Calculate a matrix of sample correlations and transform into a distance matrix
-\end{exc}
 
 <<>>=
 corMat <- cor(exprs(varFiltered))
 corMat
 cor.dist <- as.dist(1-corMat) 
 @
-\textinfo{The default method used to calculate correlations is the 'Pearson' method. If you wish to use the 'Spearman' (non-parametric) method you can specify {\tt method="spearman"} in the call to \Rfunction{cor}.}
+\textinfo The default method used to calculate correlations is the 'Pearson' method. If you wish to use the 'Spearman' (non-parametric) method you can specify {\tt method="spearman"} in the call to \Rfunction{cor}.
 
 \subsection{Hierachical clustering}
 
 Hierachical clustering is the method by which samples with similar profiles are grouped together, based on their distances. The method for grouping samples can be specified, with the default being to use \textit{complete linkage}. Different linkage methods can affect the properties of the clustering output. e.g. the 'ward' method tends to produce smaller, compact clusters. A popular way of displaying the results of clustering is a \textit{dendrogram}, which arranges the samples on the x-axis and shows the distances between samples on the y-axis.
 It is important to note that the distance of samples on the x-axis has no meaning. The fact that two samples are displayed next to each other, does not mean that they are closest together. One has to use the y-axis to determine their distance
 
-\begin{exc}
+\usecase
 Perform a hierarchical clustering on the filtered data using Euclidean distances. Are there any distinct groups in the data? Try using the correlation based similarity measure and complete linkage. Does the choice of method effect your clustering?
-\end{exc}
 
 <<clustering>>=
 par(mfrow=c(1,2))
@@ -193,9 +143,8 @@ plot(clust.cor,label = SampleGroup)
 @
 
 
-\begin{exc}
+\usecase
 Experiment with different methods of building the clustering; such as 'ward'.
-\end{exc}
 <<>>=
 plot(hclust(euc.dist,method="ward"))
 @
@@ -205,9 +154,8 @@ plot(hclust(euc.dist,method="ward"))
 
 If we want to interpret the data presented in a clustering analysis, we need a way of extracting which samples are grouped together, or to determine the optimal grouping of samples. One intuitive way of assigning groups it to 'cut' the dendrogram at a particular height on the y-axis. We can do this manually on the plot, or use the \Rfunction{cutree} function to return the labels of samples that are belong to the same group when the dendrogram is cut at the specified height, \textit{h}. Alternatively, we can specify how many groups, \textit{k}, that we want to create.
 
-\begin{exc}
+\usecase
 'Cut' the dendrogram at a height of 0.12. How many groups are formed? Now cut the dendrogram to obtain three groups. How well do these groups agree with the original sample groupings?
-\end{exc}
 
 <<>>=
 library(cluster)
@@ -223,9 +171,8 @@ table(cutree(clust.cor, k = 3),SampleGroup)
 
 A \textit{Silhouette plot} can be used to choose the optimal number of clusters. For each sample, we calculate a value that quantifies how well it 'fits' the cluster that it has been assigned to. If the value is around 1, then the sample closely fits other samples in the same cluster. However, if the value is around 0 the sample could belong to another cluster. In the silhouette plot, the values for each cluster are plotted together and ordered from largest to smallest. The number of samples belonging to each group is also displayed. 
 
-\begin{exc}
+\usecase
 Produce silhouette plots for the result of cutting the dendrogram to give 2,3,4 and 5 clusters. Which value of {\tt k} seems to be the most sensible?
-\end{exc}
 
 <<>>=
 par(mfrow=c(2,2))
@@ -237,9 +184,8 @@ plot(silhouette(cutree(clust.cor, k = 5), cor.dist), col = "red", main = paste("
 
 If we have prior knowledge of how many clusters to expect, we could run the clustering in a supervised manner. The \textbf{P}artition \textbf{A}round \textbf{M}edioids method can be used to group samples into \textit{k} clusters.
 
-\begin{exc}
+\usecase
 Group the samples into two clusters using the \Rfunction{pam} method
-\end{exc}
 <<>>=
 library(cluster)
 pam.clus <- pam(euc.dist,k=2)
@@ -260,10 +206,9 @@ Drawing a heatmap in R uses a lot of memory and can take a long time, therefore 
 the amount of data to be plotted is usually recommended. Including too many non-informative genes can also make it difficult to spot patterns. Typically, data are filtered to include the genes which tell us the most about the biological variation. In an \textit{un-supervised} setting, the selection of such genes is done without using prior knowledge about the sample groupings.
 
 
-\begin{exc}
+\usecase
 Make a heatmap using the 100 most variable genes in the experiment according to
 their inter-quartile range (IQR). Can you see any structure in the data?
-\end{exc}
 <<heatmap>>=
 IQRs = apply(exprs(varFiltered), 1, IQR)
 highVarGenes = order(IQRs,decreasing=T)[1:100]
@@ -271,11 +216,10 @@ Symbols <- as.character(fData(colonData)$Symbol[highVarGenes])
 heatmap(as.matrix(exprs(varFiltered)[highVarGenes, ]), labCol=SampleGroup,labRow=Symbols)
 @
 
-The default options for the heatmap are to cluster both the genes (rows) and samples (columns). However, sometimes we might want to specify a particular order. For example, we might want to order the columns according to sample groups. We can do this by re-ordering the input matrix manually and setting the \Rfunarg{Colv} to {\tt NA}. This tells the \Rfunction{heatmap} function not be cluster the columns. It choosing this option, we need to be careful that any column colourings or labels are set to the same ordering. Alternatively, a pre-calculated dendrogram could be used.
+The default options for the heatmap are to cluster both the genes (rows) and samples (columns). However, sometimes we might want to specify a particular order. For example, we might want to order the columns according to sample groups. We can do this by re-ordering the input matrix manually and setting the \Rcode{Colv} to {\tt NA}. This tells the \Rfunction{heatmap} function not be cluster the columns. It choosing this option, we need to be careful that any column colourings or labels are set to the same ordering. Alternatively, a pre-calculated dendrogram could be used.
 
-\begin{exc}
+\usecase
 Produce a new heatmap with columns ordered according to the tumour / normal status.
-\end{exc}
 
 <<>>=
 colOrd <- order(SampleGroup)
@@ -283,9 +227,8 @@ colOrd
 heatmap(as.matrix(exprs(varFiltered)[highVarGenes, colOrd]),Colv=NA,labCol=SampleGroup[colOrd])
 @
 
-\begin{exc}
+\usecase
 Use the 'ward' method to cluster the samples and pass this to the heatmap function
-\end{exc}
 
 <<>>=
 clus.ward <- hclust(cor.dist,method="ward")
@@ -296,11 +239,10 @@ heatmap(as.matrix(exprs(varFiltered)[highVarGenes, ]),Colv=as.dendrogram(clus.wa
 
 \subsection{Customising the heatmap}
 
-The heatmap function can be customised in many ways to make the output more informative. For example, the \Rfunarg{labRow} and \Rfunarg{labCol} parameters can be used to give labels to the rows (genes) and columns (sample) of the heatmap. Similarly, \Rfunarg{ColSideColors} and \Rfunarg{RowSideColors} give coloured labels, often used to indicate different groups which are know in advance. See the help page for heatmap for more details.
+The heatmap function can be customised in many ways to make the output more informative. For example, the \Rcode{labRow} and \Rcode{labCol} parameters can be used to give labels to the rows (genes) and columns (sample) of the heatmap. Similarly, \Rcode{ColSideColors} and \Rcode{RowSideColors} give coloured labels, often used to indicate different groups which are know in advance. See the help page for heatmap for more details.
 
-\begin{exc}
+\usecase
 Define a colour label to distinguish tumour and normal samples.
-\end{exc}
 <<>>=
 labs <- as.factor(SampleGroup)
 levels(labs) <- c("yellow", "blue")
@@ -311,9 +253,8 @@ heatmap(as.matrix(exprs(varFiltered)[highVarGenes, ]), labCol=Patient,ColSideCol
 
 The colours used to display the gene expression values can also be modified. For this, we can use the \Rpackage{RColorBrewer} package which has functions for creating pre-defined palettes. The function \Rfunction{display.brewer.all} can be used to display the palettes available through this package.
 
-\begin{exc}
+\usecase
 Change the colours to a red/blue scale
-\end{exc}
 <<>>=
 library(RColorBrewer)
 display.brewer.all()
@@ -321,14 +262,13 @@ hmcol<-brewer.pal(11,"RdBu")
 heatmap(as.matrix(exprs(varFiltered)[highVarGenes, ]), ColSideColors=as.character(labs),labRow=Symbols,col=hmcol)
 @
 
-\textinfo{You should avoid using the traditional red / green colour scheme as it may be difficult for people with colour-blindness to interpret}
+\notebell You should avoid using the traditional red / green colour scheme as it may be difficult for people with colour-blindness to interpret
 
 
 A popular use for heatmaps is to take an existing gene list (e.g. genes found to be significant in a previous study, or genes belonging to a particular pathway) and produce an image of how they cluster the data for exploratory purposes. This can be achieved easily by selecting the correct rows in the data matrix. 
 
-\begin{exc}
+\usecase
 Produce a heatmap of all genes belonging to the cell-cycle pathway (KEGG 04110)
-\end{exc}
 
 <<>>=
 library(illuminaHumanv3.db)
@@ -343,9 +283,8 @@ heatmap(as.matrix(exprs(varFiltered)[pathwayGenes, ]), ColSideColors=as.characte
 \subsection{Principal Components Analysis}
 Principal components analysis (PCA) is a data reduction technique that allows us to simplify multidimensional data sets to 2 or 3 dimensions for plotting purposes and identify which factors explain the most variability in the data. We can use the \Rfunction{prcomp} function to perform a PCA and we have to supply it with a distance matrix. The resulting object contains information on the proportion of variance that is 'explained' by each component. Ideally, we want to see that the majority of the variance is explained by the first 2 or 3 components, and that these components are associated with a biological factor
 
-\begin{exc}
+\usecase
 Perform a PCA on the correlation distances. How much variation is explained by the first two components?
-\end{exc}
 
 <<PCA>>=
 pca <- prcomp(cor.dist)
@@ -355,9 +294,8 @@ summary(pca)
 
 
 The \Rpackage{ggplot2} package is convenient for plotting principal components results as it allows many different covariates to be overlaid on the plot. See {\tt http://ggplot2.org/} for more information on this package.
-\begin{exc}
-Display the first two components using ggplot2 and overlay the SampleGroup and cluster groupings that you obtained previously. Can you separate the tumours and normals on the plot?
-\end{exc}
+\usecase Display the first two components using ggplot2 and overlay the SampleGroup and cluster groupings that you obtained previously. Can you separate the tumours and normals on the plot?
+
 
 <<PCAplot>>=
 library(ggplot2)
@@ -370,9 +308,8 @@ ggplot(pcRes, aes(x=PC1,y=PC2,col=SampleGroup,label=Patient,pch=as.factor(clusLa
 
 @
 
-\begin{exc}
+\usecase
 Compare the values of the first and second components for tumours and normals. Do they support the separation of sample groups?
-\end{exc}
 
 <<loadings>>=
 ggplot(pcRes, aes(x=SampleGroup,y=PC1,fill=SampleGroup)) + geom_boxplot()
@@ -393,10 +330,9 @@ It is also recommended to select probes with sufficient variability across sampl
 to answer. The interquartile-range of each probe across all arrays is commonly used for this
 with a cut-off of 0.5.
 
-\begin{exc}
+\usecase
 Create the gene universe of all genes with Entrez ID and with sufficient variation
 across samples. How big is the universe?
-\end{exc}
 
 <<>>=
 library(illuminaHumanv3.db)
@@ -419,11 +355,10 @@ GO terms will appear more significant.
 We now test the genes in the universe to see which ones have significant differences between the two groups. For this, we use the \Rfunction{rowttests} function implemented in the \Rpackage{genefilter} package, which performs a t-test for each row with respect to a factor. The p-values of the
 test can be extracted, with one p-value given for each probe.
 
-\begin{exc}
+\usecase
 Do a t-test for each probe between the two groups of samples we have identified.
 How many probes are significant at the 0.05 level? Define a list of genes to be used in the
 hypergeometric test by finding the Entrez Ids for these significant probes.
-\end{exc}
 
 <<>>=
 library(GOstats)
@@ -454,10 +389,9 @@ tionships between terms in the GO graph can be used if this is set to TRUE. For 
 practical we will keep conditional = FALSE
 \end{itemize}
 
-\begin{exc}
+\usecase
 Do a hypergeometric test to find which GO terms are over-represented in the
 filtered list of genes. How many GO terms are significant with a p-value of 0.05?
-\end{exc}
 
 <<>>=
 params = new("GOHyperGParams", geneIds = selectedEntrezIds, universeGeneIds = universeIds, annotation="illuminaHumanv3",ontology = "BP", pvalueCutoff = 0.05, conditional = FALSE, testDirection = "over")
@@ -471,9 +405,8 @@ term along with with total number of genes for that GO term, number of genes we 
 expect to appear in the gene list by chance and that number that were observed. A descriptive name is also given for each term. The results can also be printed out to a HTML report
 using htmlReport.
 
-\begin{exc}
+\usecase
 View the results of the top 20 GO terms and create a HTML report.
-\end{exc}
 <<>>=
 summary(hgOver)[1:20,]
 @
@@ -481,9 +414,8 @@ summary(hgOver)[1:20,]
 GOstats also has the facility to test for KEGG pathways and chromosome bands which
 are over-reprsented. The procedure of creating a gene universe and set of selected genes is
 the same. However, we have to use a different object for the parameters, as not all 
-\begin{exc}
+\usecase
 Repeat the hypergeometric test for chromsome bands and KEGG pathways
-\end{exc}
 <<>>=
 keggParams = new("KEGGHyperGParams", geneIds = selectedEntrezIds, universeGeneIds = universeIds,
 annotation = "illuminaHumanv3", pvalueCutoff = 0.05, testDirection = "over")
@@ -502,9 +434,8 @@ summary(chrHgOver)
 \subsection{A one-off test}
 Ocassionally, we might want to check if a particular set of genes appear to be up- or down-regulated in an analysis. This can be checked using the \Rfunction{geneSetTest} function in \Rpackage{limma}, which computes a p-value to test the hypothesis that the selected genes have more extreme test-statistics than one might expect by chance. Moreover, separate tests can be performed to see if the selected genes are up-regulated ({\tt alternative=up}) or down-regulated ({\tt alternative=down}). The default is to test for extreme statistics regardless of sign.  
 
-\begin{exc}
+\usecase
 Do a \Rfunction{geneSetTest} to see if Cell Cycle (KEGG 04110) genes have extreme test-statistics. Are the genes signficantly up-, or down-regulated?
-\end{exc}
 
 <<>>=
 library(limma)
@@ -527,9 +458,8 @@ The Bioconductor project has a collection of example datasets. Often these are u
 An experimental dataset can be installed and loaded as with any other Bioconductor package. The data itself is saved as an object in the package. You will need to see the documentation for the package to find out the relevant object name.
 The full list of datasets available through Bioconductor can be found here {\tt http://tinyurl.com/p5scw4a}. 
 
-\begin{exc}
+\usecase
 Install the {\tt breastCancerVDX}, {\tt breastCanceTRANSBIG} datasets. What microarray platform were they generated on? How many samples are in each dataset?
-\end{exc}
 
 <<>>=
 library(breastCancerVDX)
@@ -546,9 +476,8 @@ annotation(transbig)
 
 If we want any classifers to be reproducible and applicable to other datasets, it is sensible to exclude probes that do not have sufficient annotation from the analysis. For this, we can use the \Rpackage{genefilter} package as before. The \Rfunction{nsFilter} function performs this annotation-based filtering as well as variance filtering. The output of the function includes details about how many probes were removed at each stage of the filtering.
 
-\begin{exc}
+\usecase
 Filter the vdx dataset using to remove low-variances probes, and probes without sufficient annotation. How many probes are removed?
-\end{exc}
 
 <<>>=
 library(genefilter)
@@ -600,9 +529,8 @@ vdx.filt <- vdx.filt[[1]]
 
 We will now attempt to build a classifier using the {\tt pamr} (Predication analysis of Microarrays) \footnote{Not to be confused with the Partition Around Medioids method of clustering!} package.
 
-\begin{exc}
+\usecase
 Format the {\tt vdx} data for \Rpackage{pamr}, and train a classifier to predict ER status. For extra clarity in the results, it might be useful to rename the binary er status used in the data package to something more descriptive.
-\end{exc}
 
 <<>>=
 library(pamr)
@@ -623,9 +551,8 @@ model
 
 We can perform cross-validation using the \Rfunction{pamr.cv} function. Printing the output of this function shows a table of how many genes were used at each threshold, and the number of classification errors. Both these values need to be taken into account when choosing a suitable theshold. The \Rfunction{pamr.plotcv} function can assist with this by producing a diagnostic plot which shows how the error changes with the number of genes. In the plot produced by this function there are two panels; the top one shows the errors in the whole dataset and the bottom one considers each class separately. In each panel, the x axis corresponds to the threshold (and number of genes at each threshold) whereas the y-axis is the number of misclassifications.
 
-\begin{exc}
+\usecase
 Perform 10-fold cross-validation on the model and plot the results. Why is the maximim number of errors 135?
-\end{exc}
 
 <<>>=
 model.cv <- pamr.cv(model, train.dat, nfold = 10)
@@ -635,13 +562,12 @@ pamr.plotcv(model.cv)
 @
 
 
-\textinfo{In the following sections, feel free to experiment with different values of the threshold (which we will call {\tt Delta})}
+\textinfo In the following sections, feel free to experiment with different values of the threshold (which we will call {\tt Delta})
 
 The misclassifications can easily be visualised as a 'confusion table'. This simply tabulates the classes assigned to each sample against the original label assigned to the sample. e.g. Misclassifications are samples that we thought were 'ER+' but have been assigned to the 'ER-' group by the classifier, or 'ER-' samples assigned as 'ER+' by the classifier.
 
-\begin{exc}
+\usecase
 Create a confusion table for your chosen threshold
-\end{exc}
 
 <<>>=
 Delta <- 8
@@ -652,9 +578,8 @@ A visual representation of the class separation can be obtained using the \Rfunc
 %%<<>>=
 %%pamr.plotcen(model, train.dat, Delta)
 %%@
-\begin{exc}
+\usecase
 Plot the cross-validated probabilities for each sample. Which samples seem to be easier to classify; ER positive, or ER negative?
-\end{exc}
 
 <<>>=
 pamr.plotcvprob(model, train.dat, Delta)
@@ -663,9 +588,8 @@ pamr.plotcvprob(model, train.dat, Delta)
 There are a couple of ways of extract the details of the genes that have been used in the classifier. We can list their names using the \Rfunction{pamr.listgenes} function, which in our  case these are just returns the microarray probe names. We can however, use these IDs to query the featureData stored with the original {\tt vdx} object. We can also plot the expression values for each gene, coloured according to the class label.
 
 
-\begin{exc}
+\usecase
 Extract the details of the probes used in the classifier and plot each one
-\end{exc}
 
 <<>>=
 pamr.listgenes(model, train.dat, Delta)
@@ -675,7 +599,7 @@ pamr.geneplot(model, train.dat, Delta)
 
 @
 
-\noteright{You may get an error message {\tt Error in plot.new(): Figure margins too large} when trying to produce the gene plot. If this occurs, try increasing the size of your plotting window, or decrease the number of genes by decreasing the threshold. Alternatively, the following code will write the plots to a pdf.}
+\noteright You may get an error message {\tt Error in plot.new(): Figure margins too large} when trying to produce the gene plot. If this occurs, try increasing the size of your plotting window, or decrease the number of genes by decreasing the threshold. Alternatively, the following code will write the plots to a pdf.
 
 <<>>=
 pdf("classifierProfiles.pdf")
@@ -693,9 +617,8 @@ dev.off()
 %%ggplot(geneMat, aes(x = X2, y = value,col=ER)) + geom_point() + facet_wrap(~X1)
 %%@
 
-\begin{exc}
+\usecase
 Use the genes identified by the classifier to produce a heatmap to confirm that they separate the samples as expected.
-\end{exc}
 
 <<>>=
 symbols <- fData(vdx.filt)[classifierGenes,"Gene.symbol"]
@@ -706,9 +629,8 @@ heatmap(exprs(vdx.filt)[classifierGenes,],labRow=symbols)
 \subsection{Testing the model}
 We can now test the classifier on an external dataset. We choose the \textit{transbig} dataset for simplicity as it was generated on the same microarray platform
 
-\begin{exc}
+\usecase
 Load the TRANSBIG breast cancer dataset and subset to the same genes as the filtered vdx dataset that we have just worked with.
-\end{exc}
 
 <<>>=
 library(breastCancerTRANSBIG)
@@ -718,9 +640,8 @@ pData(transbig)[1:4,]
 transbig.filt <- transbig[featureNames(vdx.filt),]
 @
 
-\begin{exc}
+\usecase
 Classify each sample in the Transbig dataset using the model generated from the vdx data. How well do the predictions agree with the original labels?
-\end{exc}
 <<>>=
 predClass <- pamr.predict(model, exprs(transbig.filt), Delta)
 
@@ -730,9 +651,8 @@ boxplot(pamr.predict(model, exprs(transbig.filt),Delta,type="posterior")[,1]~pDa
 
 @
 
-\begin{exc}
+\usecase
 Make a heatmap of the transbig data using the genes involved in the vxd classifier
-\end{exc}
 <<>>=
 erLab <- as.factor(pData(transbig)$er)
 levels(erLab) <- c("blue","yellow")
@@ -749,9 +669,8 @@ heatmap(exprs(transbig.filt)[classifierGenes,],labRow=symbols,ColSideColors=as.c
 \subsection{Clustering and classification on the VDX datasets}
 
 
-\begin{exc}
+\usecase
 \textbf{Optional} If you have time, use some of the techniques from earlier in the practical to explore the VDX data
-\end{exc}
 
 <<>>=
 
